@@ -1,0 +1,9 @@
+inc/
+t/.vimbk/
+.git/
+.gitignore
+.shipit
+.vimbk/
+.swp
+.swo
+ignore.txt
