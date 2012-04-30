@@ -6,7 +6,7 @@ use Any::Moose;
 use MIME::Base64 qw(encode_base64 decode_base64);
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 has 'debug' => (
     is      => 'rw',
@@ -28,13 +28,21 @@ has 'redis' => (
     lazy    => 1,
 );
 
+has 'expire' => (
+    is      => 'rw',
+    isa     => 'Int',
+    default => '3600',
+);
+
+
+
 =head1 NAME
 
 True::Truth - The one True::Truth!
 
 =head1 VERSION
 
-Version 0.1.1.1.1.1.1
+Version 0.2.1.1.1.1.1.1
 
 =head1 SYNOPSIS
 
@@ -59,7 +67,7 @@ needs docs
 sub add_true_truth {
     my ($self, $key, $truth) = @_;
 
-    return $self->_add($key, $truth) -1;
+    return int $self->_add($key, $truth);
 }
 
 =head2 add_pending_truth
@@ -74,7 +82,7 @@ sub add_pending_truth {
     foreach my $ky (keys %$truth){
         $truth->{$ky}->{_truth} = 'pending';
     }
-    return $self->_add($key, $truth) -1;
+    return int $self->_add($key, $truth);
 }
 
 =head2 persist_pending_truth
@@ -161,11 +169,17 @@ sub merge (@) {
 sub _add {
     my ($self, $key, $val, $index) = @_;
     $self->redis->ping || $self->_connect_redis;
+    my $idx;
     if($index){
-        return $self->redis->lset($key, $index, encode_base64(nfreeze($val)));
+        $idx = $index;
+        $self->redis->lset($key, $index, encode_base64(nfreeze($val)));
     } else {
-        return $self->redis->rpush($key, encode_base64(nfreeze($val)));
+        $idx = $self->redis->rpush($key, encode_base64(nfreeze($val)));
+        $idx -= 1;
     }
+    $self->redis->expire($key, $self->expire)
+        unless $self->redis->ttl($key);
+    return $idx;
 }
 
 sub _get {
