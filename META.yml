@@ -1,0 +1,31 @@
+---
+abstract: 'The one True::Truth!'
+author:
+  - 'Lenz Gschwendtner, C<< <norbu09 at cpan.org> >>'
+  - 'Lenz Gschwendtner <norbu09@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 6.59
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.59
+distribution_type: module
+dynamic_config: 1
+generated_by: 'Module::Install version 1.06'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: True-Truth
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Any::Moose: 0
+  MIME::Base64: 0
+  Redis: 0
+  Storable: 0
+  perl: 5.10.0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.7
