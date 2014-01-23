@@ -1,31 +1,32 @@
 ---
-abstract: 'The one True::Truth!'
+abstract: 'merge multiple versions of truth into one'
 author:
-  - 'Lenz Gschwendtner, C<< <norbu09 at cpan.org> >>'
-  - 'Lenz Gschwendtner <norbu09@cpan.org>'
+  - 'Lenz Gschwendtner <mail@norbu09.org>'
 build_requires:
-  ExtUtils::MakeMaker: 6.59
+  Data::Dumper: 0
+  Test::Deep: 0
   Test::More: 0
+  lib: 0
+  strict: 0
+  warnings: 0
 configure_requires:
-  ExtUtils::MakeMaker: 6.59
-distribution_type: module
-dynamic_config: 1
-generated_by: 'Module::Install version 1.06'
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 5.008, CPAN::Meta::Converter version 2.132661'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: True-Truth
-no_index:
-  directory:
-    - inc
-    - t
 requires:
   Any::Moose: 0
+  Cache::KyotoTycoon: 0
+  Data::Dump: 0
   MIME::Base64: 0
-  Redis: 0
   Storable: 0
-  perl: 5.10.0
+  perl: 5.010
 resources:
-  license: http://dev.perl.org/licenses/
-version: 0.7
+  bugtracker: https://github.com/norbu09/True-Truth/issues
+  homepage: https://github.com/norbu09/True-Truth/wiki
+  repository: git://github.com/norbu09/True-Truth.git
+version: 0.9

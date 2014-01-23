@@ -1,12 +1,15 @@
 package True::Truth;
 
 use 5.010;
-use Redis;
+use Cache::KyotoTycoon;
 use Any::Moose;
 use MIME::Base64 qw(encode_base64 decode_base64);
 use Storable qw/nfreeze thaw/;
+use Data::Dump qw/dump/;
 
-our $VERSION = '0.8';
+# ABSTRACT: merge multiple versions of truth into one
+#
+our $VERSION = '0.9'; # VERSION
 
 has 'debug' => (
     is      => 'rw',
@@ -15,16 +18,37 @@ has 'debug' => (
     lazy    => 1,
 );
 
-has 'redis_server' => (
+has 'kt_server' => (
     is      => 'rw',
     isa     => 'Str',
-    default => '127.0.0.1:6379',
+    default => '127.0.0.1',
 );
 
-has 'redis' => (
+has 'kt_port' => (
     is      => 'rw',
-    isa     => 'Redis',
-    builder => '_connect_redis',
+    isa     => 'Int',
+    lazy    => 1,
+    default => sub { 1978 },
+);
+
+has 'kt_db' => (
+    is      => 'rw',
+    isa     => 'Str',
+    lazy    => 1,
+    default => sub { 0 },
+);
+
+has 'kt_timeout' => (
+    is      => 'rw',
+    isa     => 'Int',
+    lazy    => 1,
+    default => sub { 5 },
+);
+
+has 'kt' => (
+    is      => 'rw',
+    isa     => 'Cache::KyotoTycoon',
+    builder => '_connect_kt',
     lazy    => 1,
 );
 
@@ -34,33 +58,6 @@ has 'expire' => (
     default => '3600',
 );
 
-=head1 NAME
-
-True::Truth - The one True::Truth!
-
-=head1 VERSION
-
-Version 0.8.8.8.8.8
-
-=head1 SYNOPSIS
-
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
-    use True::Truth;
-
-    my $foo = True::Truth->new();
-    ...
-
-
-=head1 FUNCTIONS
-
-=head2 add_true_truth
-
-needs docs
-
-=cut
 
 sub add_true_truth {
     my ($self, $key, $truth) = @_;
@@ -68,11 +65,6 @@ sub add_true_truth {
     return int $self->_add($key, $truth);
 }
 
-=head2 add_pending_truth
-
-needs docs
-
-=cut
 
 sub add_pending_truth {
     my ($self, $key, $truth) = @_;
@@ -90,11 +82,6 @@ sub add_pending_truth {
     return int $self->_add($key, $truth);
 }
 
-=head2 persist_pending_truth
-
-needs docs
-
-=cut
 
 sub persist_pending_truth {
     my ($self, $key, $index) = @_;
@@ -115,11 +102,6 @@ sub persist_pending_truth {
     return;
 }
 
-=head2 remove_pending_truth
-
-needs docs
-
-=cut
 
 sub remove_pending_truth {
     my ($self, $key, $index) = @_;
@@ -128,11 +110,6 @@ sub remove_pending_truth {
     return;
 }
 
-=head2 get_true_truth
-
-needs docs
-
-=cut
 
 sub get_true_truth {
     my ($self, $key) = @_;
@@ -142,11 +119,6 @@ sub get_true_truth {
     return $truth;
 }
 
-=head2 merge
-
-needs docs
-
-=cut
 
 # This was stolen from Catalyst::Utils... thanks guys!
 sub merge (@);
@@ -154,7 +126,7 @@ sub merge (@);
 sub merge (@) {
     shift
         unless ref $_[0]
-    ;  # Take care of the case we're called like Hash::Merge::Simple->merge(...)
+        ; # Take care of the case we're called like Hash::Merge::Simple->merge(...)
     my ($left, @right) = @_;
 
     return $left unless @right;
@@ -188,14 +160,11 @@ sub _add {
     my $idx;
     if ($index) {
         $idx = $index;
-        $self->redis->lset($key, $index, encode_base64(nfreeze($val)));
     }
     else {
-        $idx = $self->redis->rpush($key, encode_base64(nfreeze($val)));
-        $idx -= 1;
+        $idx = scalar keys $self->kt->match_prefix("$key.");
     }
-    $self->redis->expire($key, $self->expire)
-        unless $self->redis->ttl($key);
+    $self->kt->set("$key.$idx", encode_base64(nfreeze($val)), $self->expire);
     return $idx;
 }
 
@@ -203,31 +172,92 @@ sub _get {
     my ($self, $key, $index) = @_;
 
     if ($index) {
-        my $val = $self->redis->lindex($key, $index);
+        my $val = $self->kt->get("$key.$index");
         return thaw(decode_base64($val))
             if $val;
     }
     else {
-        my @data = $self->redis->lrange($key, 0, -1);
+        my $data = $self->kt->match_prefix($key);
         my @res;
-        foreach my $val (@data) {
-            push(@res, thaw(decode_base64($val)));
+        foreach my $val (keys %{$data}) {
+            push(@res, thaw(decode_base64($self->kt->get($val))));
         }
         return \@res;
     }
     return;
 }
 
-sub _connect_redis {
+sub _connect_kt {
     my ($self) = @_;
-    return Redis->new(
-        server    => $self->redis_server,
-        reconnect => 10,
-        every     => 200,
-        encoding  => undef,
-        debug     => $self->debug,
+    return Cache::KyotoTycoon->new(
+        host    => $self->kt_server,
+        port    => $self->kt_port,
+        timeout => $self->kt_timeout,
+        db      => $self->kt_db,
     );
 }
+
+
+1;    # This is the end of True::Truth
+
+__END__
+
+=pod
+
+=encoding UTF-8
+
+=head1 NAME
+
+True::Truth - merge multiple versions of truth into one
+
+=head1 VERSION
+
+version 0.9
+
+=head1 SYNOPSIS
+
+Quick summary of what the module does.
+
+Perhaps a little code snippet.
+
+    use True::Truth;
+
+    my $foo = True::Truth->new();
+    ...
+
+=head1 NAME
+
+True::Truth - The one True::Truth!
+
+=head1 VERSION
+
+Version 0.8.8.8.8.8
+
+=head1 FUNCTIONS
+
+=head2 add_true_truth
+
+needs docs
+
+=head2 add_pending_truth
+
+needs docs
+
+=head2 persist_pending_truth
+
+needs docs
+
+=head2 remove_pending_truth
+
+needs docs
+
+=head2 get_true_truth
+
+needs docs
+
+=head2 merge
+
+needs docs
 
 =head1 AUTHOR
 
@@ -239,13 +269,11 @@ Please report any bugs or feature requests to C<bug-true-truth at rt.cpan.org>, 
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=True-Truth>.  I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc True::Truth
-
 
 You can also look for information at:
 
@@ -269,9 +297,7 @@ L<http://search.cpan.org/dist/True-Truth/>
 
 =back
 
-
 =head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -283,7 +309,15 @@ by the Free Software Foundation; or the Artistic License.
 
 See http://dev.perl.org/licenses/ for more information.
 
+=head1 AUTHOR
+
+Lenz Gschwendtner <mail@norbu09.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2014 by ideegeo Group Limited.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-1;    # This is the end of True::Truth
